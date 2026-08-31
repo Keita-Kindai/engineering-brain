@@ -43,7 +43,8 @@ Coding session:
 
 ```text
 brain-continue -> retrieve only relevant memory -> work
-               -> brain-learn (important sessions only) -> review diff -> commit manually
+               -> brain-learn (important sessions only)
+               -> validate -> auto-publish eligible Agent-authored memory
 ```
 
 Recall and maintenance:
@@ -69,7 +70,8 @@ Codex では `$brain-recall`、Claude Code では `/brain-recall` のように�
 
 - credentials、secrets、private source、confidential information、raw AI transcript は public tree に保存しません。
 - `.gitignore` は最後の防壁ではありません。Commit 前に `git status`、staged diff、secret の有無を必ず確認します。
-- Agent は commit / push しません。変更と diff を提示し、User の明示承認後に User が commit します。
+- Human Knowledge、Project state、Decisionなどは変更とdiffを提示し、Userの明示承認後にcommitします。
+- `brain-learn`が生成した`agent-memory/**`と`sessions/**`だけの変更は、検証後にAgentが`brain:` commitを作成し、forceなしで通常pushします。対象外の変更が混ざれば停止します。
 - `knowledge/` は Human semantic memory です。Coding session 中に Agent が勝手に大幅更新せず、まず Knowledge Candidate として `inbox/` に置きます。
 
 ## Token efficiency
@@ -84,4 +86,3 @@ Codex では `$brain-recall`、Claude Code では `/brain-recall` のように�
 ```
 
 Global installer は既存の同名 file を上書きせず、Codex の `~/.agents/skills` と Claude Code の `~/.claude/skills` に canonical skill への symlink を作ります。その後、新しい Agent session で `$brain-recall` または `/brain-recall` を試してください。
-

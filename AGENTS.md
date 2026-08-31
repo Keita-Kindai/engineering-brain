@@ -5,6 +5,5 @@
 - Memory retrieval は local-first / progressive disclosure で行う。
 - 未登録 Project を勝手に登録しない。
 - Public/private boundary と Knowledge ownership を守る。
-- Memory 変更後は diff を提示し、commit / push しない。
+- Memory publishingは`BRAIN.md`の境界に従う。Agent-authored `brain-learn` memoryだけが限定的な自動commit/push対象である。
 - Canonical skills は `agent-tools/skills/`、Codex adapter は `.agents/skills/` にある。
-

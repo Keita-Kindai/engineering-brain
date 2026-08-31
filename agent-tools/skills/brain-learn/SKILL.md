@@ -1,6 +1,6 @@
 ---
 name: brain-learn
-description: Distill an important coding session into reusable Engineering Brain memory. Use whenever the user explicitly invokes brain-learn, or after a non-obvious failure, reusable workflow, corrected assumption, major project-state change, or accepted engineering decision; do not use for trivial sessions.
+description: Distill an important coding session into reusable Engineering Brain memory and safely publish eligible Agent-authored memory. Use whenever the user explicitly invokes brain-learn, or after a non-obvious failure, reusable workflow, corrected assumption, major project-state change, or accepted engineering decision; do not use for trivial sessions.
 ---
 
 # Brain Learn
@@ -37,5 +37,8 @@ Identify the current Git root and remote, then match the public or private regis
 
 ## Finish
 
-Keep current-state files compact and update only materially changed sections. Update small indexes only when discovery benefits. Validate edited files, show `git status --short` and the relevant diff, and summarize where each item was classified. Do not stage, commit, or push.
+Keep current-state files compact and update only materially changed sections. Update small indexes only when discovery benefits. Validate edited files, inspect the complete `git status` and diff, and summarize where each item was classified.
 
+When every change in the worktree and index was authored by this learning workflow and is limited to `agent-memory/**` and `sessions/**`, including their small indexes, follow the Agent-managed publishing exception in `BRAIN.md`: unless the user requested review-only, run privacy and secret checks, create a concise `brain:` commit message, commit exactly those changes, and push the current branch normally to its configured remote. Never force push or rewrite history.
+
+If any Human Knowledge, Inbox, Project state, Decision, Maintenance report, unrelated change, ambiguous ownership, validation failure, remote divergence, conflict, or authentication failure is present, do not auto-publish. Show the diff and stop for user direction. Report the commit hash, push destination, and final status after a successful publish.

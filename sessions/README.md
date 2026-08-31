@@ -7,3 +7,6 @@
 - Filename: `YYYY-MM-DD-short-topic.md`
 - Status: `active` または `distilled`
 
+## Recent
+
+- [2026-08-31 — Engineering Brain Version 1 bootstrap](recent/2026-08-31-engineering-brain-v1-bootstrap.md)

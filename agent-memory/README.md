@@ -10,3 +10,6 @@ Coding Agent が次回より効率的・正確に作業するための procedura
 
 Agent-neutral な内容を Host 固有 directory に重複保存しません。個人情報や Session transcript は保存しません。
 
+## Workflows
+
+- [Share one skill source across coding agents](shared/workflows/share-skills-across-agents.md)

@@ -95,7 +95,18 @@ Public tree に credentials、API keys、tokens、passwords、private source cod
 
 ## Change and review policy
 
-Memory を変更した Agent は、関連 index も小さく更新し、validation、`git status --short`、diff の要約を提示します。自動で stage、commit、push しません。Unrelated な User changes を変更しません。
+Memory を変更した Agent は、関連 index も小さく更新し、validation、`git status --short`、diff の要約を確認します。Unrelated な User changes を変更しません。
+
+通常、Human Knowledge、Inbox、Project state、Decision、Maintenance report、またはそれらを含む変更は自動でstage、commit、pushしません。User reviewと明示承認を待ちます。
+
+例外として、`brain-learn`でAgent自身が蒸留した変更が`agent-memory/**`と`sessions/**`（各directory内の小さなindex更新を含む）だけに限定される場合は、Userがreview-onlyを指定しない限り、Agentがcommit messageを作成して通常pushまで行います。この例外では必ず次を満たします。
+
+- Worktreeとindex全体を確認し、eligible path以外やUser由来の変更が混ざっていれば停止する。
+- Privacy、secret、private情報、raw transcript、validation errorがないことを確認する。
+- `brain:` prefixの簡潔なcommit messageを内容から作る。
+- Current branchをconfigured remoteへ通常pushし、force push、history rewrite、unrelated commitのamendは行わない。
+- Remote divergence、authentication failure、conflict、対象範囲の曖昧さがあればpushを繰り返さず、状態を報告して停止する。
+- Commit hash、push先、最終statusをUserへ報告する。
 
 ## Session lifecycle
 
@@ -105,11 +116,11 @@ brain-continue (when needed)
 -> coding / investigation
 -> brain-learn only when explicit or important
 -> classify and distill
--> show diff
--> User review and manual commit
+-> validate and inspect the complete diff
+-> auto commit/push only for eligible Agent-authored memory
+-> otherwise User review and explicit approval
 ```
 
 ## Maintenance lifecycle
 
 `brain-maintenance` は volatility と `last-reviewed` から候補を絞り、必要なものだけ authoritative source と比較し、`maintenance/reports/` に report を作って停止します。Knowledge 本文や review date は User が更新対象を選ぶまで変更しません。Scheduler はこの repository の責務に含めません。
-
