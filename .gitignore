@@ -1,0 +1,23 @@
+# Strict public/private boundary
+.private/
+.local/
+
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.*
+
+# Raw agent/session exports are not part of Version 1
+.raw/
+
+# OS and editor noise
+.DS_Store
+*.swp
+*~
+

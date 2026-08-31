@@ -1,0 +1,9 @@
+# Session memory index
+
+再利用価値が高い Coding Session の distilled summary だけを保存します。Raw transcript は保存しません。
+
+- `recent/`: 通常検索対象。明示的 `brain-learn` または重要 Session のみ。
+- `archive/YYYY/`: 他 memory へ十分蒸留された古い Summary。過去の試行を尋ねられた場合だけ検索。
+- Filename: `YYYY-MM-DD-short-topic.md`
+- Status: `active` または `distilled`
+
