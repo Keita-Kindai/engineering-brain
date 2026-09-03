@@ -26,7 +26,7 @@ Private な Project や Note は `.private/`、machine-local な対応表など�
 - `projects/`: Public に保存できる登録済み Project memory
 - `sessions/recent/`, `sessions/archive/YYYY/`: Recent / distilled session memory
 - `templates/`: 軽量な Note、Project、Decision、Report templates
-- `agent-tools/skills/`: 5 Skills の唯一の Source of Truth
+- `agent-tools/skills/`: 6 Skills の唯一の Source of Truth
 - `.agents/skills/`, `.claude/skills/`: Repository 内 discovery 用 symlink
 
 各主要 directory の `README.md` は本文ではなく、必要な file へ到達するための小さな index です。
@@ -36,7 +36,8 @@ Private な Project や Note は `.private/`、machine-local な対応表など�
 Human learning:
 
 ```text
-learn -> inbox/ -> brain-capture -> knowledge/ -> review diff -> commit manually
+completed learning session -> learning-note -> knowledge/ -> review diff
+prepared note -> inbox/ -> brain-capture -> knowledge/ -> review diff
 ```
 
 Coding session:
@@ -63,8 +64,9 @@ monthly  -> brain-maintenance -> report only -> human chooses updates
 | `brain-continue` | 登録済み Project の Context を復元 |
 | `brain-capture` | `inbox/` の Human Learning を Knowledge に統合 |
 | `brain-maintenance` | 古くなった可能性のある Knowledge の report を生成 |
+| `learning-note` | 学習Sessionを将来復習できるKnowledge Noteへ蒸留 |
 
-Codex では `$brain-recall`、Claude Code では `/brain-recall` のように呼び出します。説明に一致すれば暗黙に利用される場合もあります。
+Codex では `$brain-recall`や`$learning-note`、Claude Code では `/brain-recall`や`/learning-note`のように呼び出します。説明に一致すれば暗黙に利用される場合もあります。
 
 ## Privacy and Git
 

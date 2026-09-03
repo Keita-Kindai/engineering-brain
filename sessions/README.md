@@ -10,3 +10,4 @@
 ## Recent
 
 - [2026-08-31 — Engineering Brain Version 1 bootstrap](recent/2026-08-31-engineering-brain-v1-bootstrap.md)
+- [2026-09-03 — Learning Note and Visual HTML workflow](recent/2026-09-03-learning-note-visual-workflow.md)

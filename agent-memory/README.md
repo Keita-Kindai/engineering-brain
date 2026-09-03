@@ -13,3 +13,7 @@ Agent-neutral な内容を Host 固有 directory に重複保存しません。�
 ## Workflows
 
 - [Share one skill source across coding agents](shared/workflows/share-skills-across-agents.md)
+
+## Lessons
+
+- [Visual verification must be browser-observed](shared/lessons/visual-verification-must-be-browser-observed.md)

@@ -14,7 +14,7 @@ required_dirs=(
   sessions/recent sessions/archive maintenance/reports templates
   agent-tools/skills .agents/skills .claude/skills .private .local
 )
-skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance)
+skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance learning-note)
 
 for dir in "${required_dirs[@]}"; do
   [[ -d "$dir" ]] || { echo "Missing directory: $dir" >&2; exit 1; }
@@ -46,4 +46,3 @@ if [[ "${CHECK_GLOBAL_SKILLS:-0}" == "1" ]]; then
 fi
 
 echo "Engineering Brain structure, skills, adapters, ignore rules, and diff checks passed."
-

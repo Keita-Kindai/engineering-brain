@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="ja" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Next.js Authentication — Visual Review</title>
+  <meta name="description" content="Auth.js / NextAuthのAuthenticationとAuthorization、login・redirect・session flowを短時間で復習するvisual page。">
+  <script>document.documentElement.classList.replace('no-js', 'js');</script>
+  <style>
+    :root {
+      --paper: #f3efe5;
+      --paper-deep: #e8e0d0;
+      --ink: #173236;
+      --muted: #5f6e6d;
+      --line: #c9c3b6;
+      --white: #fffdf8;
+      --authn: #5e54c7;
+      --authn-soft: #ebe8ff;
+      --authz: #087d6a;
+      --authz-soft: #dff5ee;
+      --client: #2676a4;
+      --server: #d25b2e;
+      --provider: #7554a6;
+      --database: #9b6b08;
+      --danger: #a43c39;
+      --shadow: 0 18px 50px rgba(23, 50, 54, 0.11);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 4%, rgba(94, 84, 199, 0.13), transparent 28rem),
+        radial-gradient(circle at 94% 26%, rgba(8, 125, 106, 0.12), transparent 30rem),
+        var(--paper);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    a { color: inherit; }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .skip-link {
+      position: fixed;
+      left: 1rem;
+      top: -5rem;
+      z-index: 20;
+      padding: .7rem 1rem;
+      border-radius: 999px;
+      background: var(--ink);
+      color: white;
+    }
+
+    .skip-link:focus { top: 1rem; }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin-inline: auto;
+    }
+
+    .hero {
+      padding: 34px 0 26px;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 48px;
+      font-size: .8rem;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      text-decoration: none;
+      border-bottom: 1px solid currentColor;
+    }
+
+    .source-link::before { content: "↗"; }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(340px, .75fr);
+      gap: clamp(30px, 6vw, 82px);
+      align-items: center;
+    }
+
+    .eyebrow,
+    .section-kicker {
+      margin: 0 0 .75rem;
+      color: var(--authz);
+      font-size: .76rem;
+      font-weight: 850;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 760px;
+      margin-bottom: 1.2rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(3rem, 8vw, 6.7rem);
+      font-weight: 500;
+      letter-spacing: -.055em;
+      line-height: .92;
+    }
+
+    .hero-lede {
+      max-width: 650px;
+      margin-bottom: 1.8rem;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.25rem);
+    }
+
+    .concept-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .concept {
+      padding: 16px;
+      border: 1px solid rgba(23, 50, 54, .14);
+      border-radius: 15px;
+      background: rgba(255, 253, 248, .62);
+    }
+
+    .concept strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: .88rem;
+    }
+
+    .concept span {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.1rem;
+      line-height: 1.3;
+    }
+
+    .concept.authn { border-top: 4px solid var(--authn); }
+    .concept.authz { border-top: 4px solid var(--authz); }
+
+    .loop-card {
+      position: relative;
+      min-height: 460px;
+      padding: 26px;
+      overflow: hidden;
+      border: 1px solid rgba(23, 50, 54, .12);
+      border-radius: 34px;
+      background: var(--ink);
+      color: white;
+      box-shadow: var(--shadow);
+    }
+
+    .loop-card::before {
+      content: "";
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      top: -140px;
+      right: -90px;
+      border: 60px solid rgba(223, 245, 238, .08);
+      border-radius: 50%;
+    }
+
+    .loop-label {
+      position: relative;
+      color: #b9d1ce;
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .loop-title {
+      position: relative;
+      max-width: 300px;
+      margin: 12px 0 30px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 2rem;
+      line-height: 1.08;
+    }
+
+    .loop-steps {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .loop-steps li {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .055);
+      font-size: .88rem;
+    }
+
+    .loop-steps b {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--authz);
+      font-size: .72rem;
+    }
+
+    .loop-note {
+      position: relative;
+      margin: 16px 0 0;
+      color: #b9d1ce;
+      font-size: .82rem;
+    }
+
+    .quick-nav {
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      display: flex;
+      gap: 5px;
+      width: fit-content;
+      max-width: 100%;
+      margin: 4px auto 34px;
+      padding: 6px;
+      overflow-x: auto;
+      border: 1px solid rgba(23, 50, 54, .12);
+      border-radius: 999px;
+      background: rgba(255, 253, 248, .86);
+      box-shadow: 0 10px 30px rgba(23, 50, 54, .08);
+      backdrop-filter: blur(12px);
+    }
+
+    .quick-nav a {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    .quick-nav a:hover,
+    .quick-nav a:focus-visible {
+      background: var(--ink);
+      color: white;
+      outline: none;
+    }
+
+    main { padding-bottom: 80px; }
+
+    section {
+      margin: 0 0 72px;
+      scroll-margin-top: 90px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 26px;
+    }
+
+    .section-no {
+      padding-top: 4px;
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    h2 {
+      margin-bottom: .35rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 5vw, 3.7rem);
+      font-weight: 500;
+      letter-spacing: -.035em;
+      line-height: 1;
+    }
+
+    .section-intro {
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .decision-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .decision-card {
+      position: relative;
+      padding: clamp(22px, 4vw, 38px);
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: var(--white);
+      box-shadow: 0 12px 35px rgba(23, 50, 54, .07);
+    }
+
+    .decision-card::after {
+      content: attr(data-number);
+      position: absolute;
+      right: 18px;
+      bottom: -30px;
+      color: rgba(23, 50, 54, .045);
+      font-family: Georgia, serif;
+      font-size: 9rem;
+      line-height: 1;
+    }
+
+    .decision-card.authn { border-top: 7px solid var(--authn); }
+    .decision-card.authz { border-top: 7px solid var(--authz); }
+
+    .decision-card .tag {
+      display: inline-block;
+      margin-bottom: 18px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .authn .tag { color: var(--authn); background: var(--authn-soft); }
+    .authz .tag { color: var(--authz); background: var(--authz-soft); }
+
+    .decision-card h3 {
+      position: relative;
+      margin-bottom: .65rem;
+      font-size: clamp(1.35rem, 3vw, 2rem);
+    }
+
+    .decision-card .question {
+      position: relative;
+      margin-bottom: 24px;
+      font-family: Georgia, serif;
+      font-size: 1.24rem;
+    }
+
+    .decision-card dl {
+      position: relative;
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 8px 12px;
+      margin: 0;
+      font-size: .88rem;
+    }
+
+    .decision-card dt { color: var(--muted); font-weight: 750; }
+    .decision-card dd { margin: 0; }
+
+    .flow-shell {
+      padding: clamp(18px, 3vw, 30px);
+      border: 1px solid rgba(23, 50, 54, .12);
+      border-radius: 28px;
+      background: rgba(255, 253, 248, .68);
+      box-shadow: var(--shadow);
+    }
+
+    .flow-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .flow-tab {
+      appearance: none;
+      padding: 10px 15px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: .84rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .flow-tab[aria-selected="true"] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: white;
+    }
+
+    .flow-tab:focus-visible {
+      outline: 3px solid rgba(94, 84, 199, .3);
+      outline-offset: 2px;
+    }
+
+    .js .flow-panel:not(.is-active) { display: none; }
+
+    .flow-panel h3 {
+      margin-bottom: 5px;
+      font-size: 1.2rem;
+    }
+
+    .flow-panel > p {
+      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .timeline-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .timeline {
+      display: flex;
+      align-items: stretch;
+      min-width: max-content;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .timeline li {
+      position: relative;
+      width: 160px;
+      min-height: 152px;
+      margin-right: 30px;
+      padding: 16px;
+      border-top: 5px solid var(--layer-color, var(--ink));
+      border-radius: 14px;
+      background: var(--white);
+      box-shadow: 0 8px 22px rgba(23, 50, 54, .07);
+    }
+
+    .timeline li::after {
+      content: "→";
+      position: absolute;
+      top: 52px;
+      right: -23px;
+      color: var(--muted);
+      font-size: 1.2rem;
+      font-weight: 850;
+    }
+
+    .timeline li:last-child { margin-right: 0; }
+    .timeline li:last-child::after { content: none; }
+
+    .timeline .layer {
+      display: block;
+      margin-bottom: 13px;
+      color: var(--layer-color, var(--ink));
+      font-size: .65rem;
+      font-weight: 900;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .timeline strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: .92rem;
+      line-height: 1.25;
+    }
+
+    .timeline small {
+      display: block;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .layer-client { --layer-color: var(--client); }
+    .layer-server { --layer-color: var(--server); }
+    .layer-provider { --layer-color: var(--provider); }
+    .layer-database { --layer-color: var(--database); }
+    .layer-result { --layer-color: var(--authz); }
+    .layer-error { --layer-color: var(--danger); }
+
+    .new-request {
+      margin-top: 18px;
+      padding: 13px 16px;
+      border-left: 5px solid var(--authz);
+      background: var(--authz-soft);
+      font-size: .9rem;
+      font-weight: 700;
+    }
+
+    .relationship-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .relationship {
+      padding: 24px;
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: white;
+    }
+
+    .relationship.login { background: #342e63; }
+
+    .relationship h3 { margin-bottom: 6px; }
+
+    .relationship > p {
+      color: #c6d5d3;
+      font-size: .88rem;
+    }
+
+    .call-chain {
+      display: grid;
+      gap: 8px;
+      margin: 20px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .call-chain li {
+      position: relative;
+      padding: 12px 14px 12px 42px;
+      border: 1px solid rgba(255, 255, 255, .13);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .055);
+      font-size: .84rem;
+    }
+
+    .call-chain li::before {
+      content: counter(list-item, decimal-leading-zero);
+      position: absolute;
+      left: 13px;
+      color: #91bdb6;
+      font-size: .68rem;
+      font-weight: 850;
+    }
+
+    .call-chain code { color: #fff1b8; }
+
+    .caller-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .caller {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 253, 248, .7);
+    }
+
+    .caller b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--server);
+      font-size: .84rem;
+    }
+
+    .caller span { color: var(--muted); font-size: .8rem; }
+
+    .code-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .code-card {
+      overflow: hidden;
+      border: 1px solid rgba(23, 50, 54, .12);
+      border-radius: 17px;
+      background: var(--white);
+    }
+
+    .code-card header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 12px 15px;
+      border-bottom: 1px solid rgba(23, 50, 54, .1);
+      font-size: .76rem;
+      font-weight: 800;
+    }
+
+    .code-card header span { color: var(--muted); font-weight: 650; }
+
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow-x: auto;
+      background: #13292d;
+      color: #e9f3ef;
+      font-size: .78rem;
+      line-height: 1.65;
+    }
+
+    .code-card p {
+      margin: 0;
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: .83rem;
+    }
+
+    .corrections {
+      display: grid;
+      gap: 10px;
+    }
+
+    .correction {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1.2fr);
+      gap: 12px;
+      align-items: center;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255, 253, 248, .66);
+    }
+
+    .correction .before,
+    .correction .after { padding: 10px 12px; border-radius: 10px; }
+    .correction .before { background: #f7e6df; color: #7f342f; }
+    .correction .after { background: var(--authz-soft); color: #075f52; }
+    .correction .arrow { text-align: center; font-weight: 900; }
+    .correction small { display: block; margin-bottom: 2px; font-weight: 850; text-transform: uppercase; }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--white);
+    }
+
+    summary {
+      padding: 16px 18px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    details p {
+      margin: 0;
+      padding: 0 18px 18px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .footer-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 24px;
+      border-radius: var(--radius);
+      background: var(--ink);
+      color: white;
+    }
+
+    .footer-card p { margin: 0; color: #bdd0ce; font-size: .88rem; }
+
+    .footer-card a {
+      flex: 0 0 auto;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: white;
+      color: var(--ink);
+      font-size: .82rem;
+      font-weight: 850;
+      text-decoration: none;
+    }
+
+    @media (max-width: 820px) {
+      .hero-grid,
+      .decision-grid,
+      .relationship-grid,
+      .code-grid { grid-template-columns: 1fr; }
+
+      .loop-card { min-height: auto; }
+      .caller-strip { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 22px, 1180px); }
+      .hero { padding-top: 22px; }
+      .topline { margin-bottom: 34px; }
+      .topline span:last-child { display: none; }
+      h1 { font-size: clamp(2.8rem, 16vw, 4.4rem); }
+      .concept-pair { grid-template-columns: 1fr; }
+      .quick-nav { justify-content: flex-start; margin-bottom: 48px; }
+      section { margin-bottom: 58px; }
+      .section-head { grid-template-columns: 42px minmax(0, 1fr); gap: 8px; }
+      .flow-tabs { display: grid; grid-template-columns: 1fr; }
+      .flow-tab { text-align: left; }
+      .correction { grid-template-columns: 1fr; }
+      .correction .arrow { transform: rotate(90deg); }
+      .review-grid { grid-template-columns: 1fr; }
+      .footer-card { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">本文へ移動</a>
+
+  <header class="hero shell">
+    <div class="topline">
+      <a class="source-link" href="../nextjs-authentication.md">Canonical Markdown</a>
+      <span>Visual review · 2026-09-03</span>
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Next.js · Auth.js · Request lifecycle</p>
+        <h1>認証フローは、<br>1本ではない。</h1>
+        <p class="hero-lede">Passwordを確かめる処理と、ページへ通す判断は別物。間をつなぐのがSession・Cookie・Redirect、そして新しいHTTP Requestです。</p>
+
+        <div class="concept-pair" aria-label="AuthenticationとAuthorizationの要点">
+          <div class="concept authn">
+            <strong>Authentication</strong>
+            <span>「本当にこのUserか？」</span>
+          </div>
+          <div class="concept authz">
+            <strong>Authorization</strong>
+            <span>「このPageへ通してよいか？」</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="loop-card" aria-label="ログイン成功後の重要な循環">
+        <span class="loop-label">The critical loop</span>
+        <h2 class="loop-title">Login成功はDashboard表示の直前ではない</h2>
+        <ol class="loop-steps">
+          <li><b>1</b><span><code>authorize()</code>がUserを返す</span></li>
+          <li><b>2</b><span>NextAuthがSession / Cookieを作る</span></li>
+          <li><b>3</b><span>BrowserへRedirectを返す</span></li>
+          <li><b>4</b><span>Browserが新しいGET Requestを送る</span></li>
+          <li><b>5</b><span><code>proxy.ts</code>と<code>authorized()</code>が再実行</span></li>
+        </ol>
+        <p class="loop-note">この「新しいRequest」がAuthenticationとAuthorizationをつなぐ。</p>
+      </aside>
+    </div>
+  </header>
+
+  <nav class="quick-nav" aria-label="ページ内ナビゲーション">
+    <a href="#decisions">2つの判断</a>
+    <a href="#flows">3つのFlow</a>
+    <a href="#relationships">呼び出し関係</a>
+    <a href="#code">重要Code</a>
+    <a href="#corrections">誤解の修正</a>
+    <a href="#review">Review</a>
+  </nav>
+
+  <main id="main" class="shell">
+    <section id="decisions">
+      <div class="section-head">
+        <span class="section-no">01</span>
+        <div>
+          <p class="section-kicker">Two separate decisions</p>
+          <h2>似た名前、違う責務</h2>
+          <p class="section-intro"><code>authorize()</code>と<code>authorized()</code>は、実行時点・入力・出力・呼び出し元が異なります。</p>
+        </div>
+      </div>
+
+      <div class="decision-grid">
+        <article class="decision-card authn" data-number="A">
+          <span class="tag">Identity check</span>
+          <h3><code>authorize()</code></h3>
+          <p class="question">入力されたcredentialは、本物か？</p>
+          <dl>
+            <dt>場所</dt><dd><code>auth.ts</code></dd>
+            <dt>呼ぶ人</dt><dd>Credentials Provider / NextAuth</dd>
+            <dt>入力</dt><dd>email・plain password</dd>
+            <dt>処理</dt><dd>Zod → DB → bcrypt</dd>
+            <dt>出力</dt><dd><code>user</code> または <code>null</code></dd>
+          </dl>
+        </article>
+
+        <article class="decision-card authz" data-number="Z">
+          <span class="tag">Access decision</span>
+          <h3><code>authorized()</code></h3>
+          <p class="question">現在のUserを、このURLへ通すか？</p>
+          <dl>
+            <dt>場所</dt><dd><code>auth.config.ts</code></dd>
+            <dt>呼ぶ人</dt><dd><code>NextAuth(authConfig).auth</code></dd>
+            <dt>入力</dt><dd>現在の<code>auth</code>・Request</dd>
+            <dt>処理</dt><dd>Session結果・pathnameを判断</dd>
+            <dt>出力</dt><dd><code>true</code> / <code>false</code> / Redirect</dd>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    <section id="flows">
+      <div class="section-head">
+        <span class="section-no">02</span>
+        <div>
+          <p class="section-kicker">End-to-end flows</p>
+          <h2>Requestを追えば迷わない</h2>
+          <p class="section-intro">色は実行境界を示します。横へ追うと「誰が次を呼ぶか」と「どこで新しいRequestになるか」が見えます。</p>
+        </div>
+      </div>
+
+      <div class="flow-shell">
+        <div class="flow-tabs" role="tablist" aria-label="認証フロー選択">
+          <button class="flow-tab" id="tab-guard" role="tab" aria-selected="true" aria-controls="flow-guard" data-flow="guard">未ログインで保護Page</button>
+          <button class="flow-tab" id="tab-success" role="tab" aria-selected="false" aria-controls="flow-success" data-flow="success" tabindex="-1">Login成功</button>
+          <button class="flow-tab" id="tab-failure" role="tab" aria-selected="false" aria-controls="flow-failure" data-flow="failure" tabindex="-1">Login失敗</button>
+        </div>
+
+        <article class="flow-panel is-active" id="flow-guard" role="tabpanel" aria-labelledby="tab-guard">
+          <h3>未ログインで <code>/dashboard/invoices</code> へ</h3>
+          <p><code>matcher</code>は認証要否ではなく、Proxyを実行するRequestかを選びます。</p>
+          <div class="timeline-wrap" tabindex="0" aria-label="未ログインアクセスの横スクロールフロー">
+            <ol class="timeline">
+              <li class="layer-client"><span class="layer">Client</span><strong>GET /dashboard</strong><small>Browserが保護Pageを要求</small></li>
+              <li class="layer-server"><span class="layer">Next.js</span><strong>matcher</strong><small>Proxy対象のRequestか選ぶ</small></li>
+              <li class="layer-server"><span class="layer">Proxy</span><strong>proxy.ts</strong><small><code>NextAuth(...).auth</code>を実行</small></li>
+              <li class="layer-provider"><span class="layer">Auth.js</span><strong>Session確認</strong><small>Cookie / JWTを処理</small></li>
+              <li class="layer-provider"><span class="layer">Callback</span><strong>authorized()</strong><small><code>auth.user</code>なし → false</small></li>
+              <li class="layer-result"><span class="layer">Response</span><strong>Redirect /login</strong><small><code>callbackUrl</code>に元の目的地</small></li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="flow-panel" id="flow-success" role="tabpanel" aria-labelledby="tab-success">
+          <h3>Login成功 → Session → 新しいRequest</h3>
+          <p>Authentication成功後、Sessionを持った次のRequestでAuthorizationが成功します。</p>
+          <div class="timeline-wrap" tabindex="0" aria-label="ログイン成功の横スクロールフロー">
+            <ol class="timeline">
+              <li class="layer-client"><span class="layer">Client</span><strong>Form submit</strong><small>email・password・redirectTo</small></li>
+              <li class="layer-server"><span class="layer">React / Server</span><strong>authenticate()</strong><small>useActionStateが呼び出す</small></li>
+              <li class="layer-provider"><span class="layer">Auth.js</span><strong>signIn()</strong><small>credentials Providerを選択</small></li>
+              <li class="layer-provider"><span class="layer">Provider</span><strong>authorize()</strong><small>Zodで入力を検証</small></li>
+              <li class="layer-database"><span class="layer">Database</span><strong>getUser()</strong><small>PostgreSQLからUser取得</small></li>
+              <li class="layer-provider"><span class="layer">Server</span><strong>bcrypt.compare()</strong><small>plain passwordとhashを比較</small></li>
+              <li class="layer-provider"><span class="layer">Auth.js</span><strong>Session / Cookie</strong><small>Userを認証状態へ変換</small></li>
+              <li class="layer-client"><span class="layer">Client</span><strong>Redirect</strong><small>BrowserがcallbackUrlへ移動</small></li>
+              <li class="layer-result"><span class="layer">New request</span><strong>proxy → authorized</strong><small>今度は<code>auth.user</code>あり</small></li>
+            </ol>
+          </div>
+          <div class="new-request">境界：Redirect後は同じ処理の続きではなく、Browserから始まる新しいHTTP Request。</div>
+        </article>
+
+        <article class="flow-panel" id="flow-failure" role="tabpanel" aria-labelledby="tab-failure">
+          <h3>Login失敗 → Error stateへ戻る</h3>
+          <p><code>authorize()</code>の<code>null</code>はCredentialsSigninとなり、Server Actionが画面向け文字列へ変換します。</p>
+          <div class="timeline-wrap" tabindex="0" aria-label="ログイン失敗の横スクロールフロー">
+            <ol class="timeline">
+              <li class="layer-client"><span class="layer">Client</span><strong>Form submit</strong><small>誤ったcredential</small></li>
+              <li class="layer-server"><span class="layer">Server Action</span><strong>authenticate()</strong><small><code>signIn()</code>へ渡す</small></li>
+              <li class="layer-provider"><span class="layer">Provider</span><strong>authorize()</strong><small>Userなし / password不一致</small></li>
+              <li class="layer-error"><span class="layer">Auth.js</span><strong>CredentialsSignin</strong><small>AuthErrorとしてthrow</small></li>
+              <li class="layer-server"><span class="layer">Server Action</span><strong>catch AuthError</strong><small>"Invalid credentials."を返す</small></li>
+              <li class="layer-client"><span class="layer">React</span><strong>useActionState</strong><small>Error messageを再描画</small></li>
+            </ol>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="relationships">
+      <div class="section-head">
+        <span class="section-no">03</span>
+        <div>
+          <p class="section-kicker">Who calls whom?</p>
+          <h2>Fileではなく、呼び出し鎖を見る</h2>
+          <p class="section-intro">短いframework codeの裏には、Next.js・React・Auth.jsが生成する呼び出しがあります。</p>
+        </div>
+      </div>
+
+      <div class="relationship-grid">
+        <article class="relationship">
+          <h3>Page protection chain</h3>
+          <p>HTTP RequestからAuthorization decisionまで。</p>
+          <ol class="call-chain">
+            <li>Next.jsが<code>proxy.ts</code>を見つける</li>
+            <li><code>matcher</code>がProxy対象を選ぶ</li>
+            <li><code>NextAuth(authConfig).auth</code>がSessionを読む</li>
+            <li>Auth.jsが<code>authorized({ auth, request })</code>を呼ぶ</li>
+            <li>boolean / RedirectをNextAuthがResponseへ反映</li>
+          </ol>
+        </article>
+
+        <article class="relationship login">
+          <h3>Login chain</h3>
+          <p>Form submitからAuthentication decisionまで。</p>
+          <ol class="call-chain">
+            <li>Reactが<code>authenticate(prevState, formData)</code>を呼ぶ</li>
+            <li>Server Actionが<code>signIn("credentials", formData)</code>を呼ぶ</li>
+            <li>Auth.jsがCredentials Providerを選ぶ</li>
+            <li>Providerが<code>authorize(credentials)</code>を呼ぶ</li>
+            <li>結果をSession処理またはAuthErrorへつなぐ</li>
+          </ol>
+        </article>
+      </div>
+
+      <div class="caller-strip" aria-label="frameworkが呼ぶ関数">
+        <div class="caller"><b>Next.js invokes</b><span><code>proxy.ts</code> — file conventionによる入口</span></div>
+        <div class="caller"><b>React invokes</b><span><code>authenticate()</code> — useActionState / form action</span></div>
+        <div class="caller"><b>Auth.js invokes</b><span><code>authorized()</code>と<code>authorize()</code> — 異なる段階</span></div>
+      </div>
+    </section>
+
+    <section id="code">
+      <div class="section-head">
+        <span class="section-no">04</span>
+        <div>
+          <p class="section-kicker">Critical code only</p>
+          <h2>短いCodeを展開する</h2>
+          <p class="section-intro">ここでの展開はmental modelのための概念表現で、library内部実装そのものではありません。</p>
+        </div>
+      </div>
+
+      <div class="code-grid">
+        <article class="code-card">
+          <header>Proxy handler <span>Next.js + Auth.js</span></header>
+          <pre><code>const configuredAuth = NextAuth(authConfig);
+const authHandler = configuredAuth.auth;
+export default authHandler;</code></pre>
+          <p>HTTP Requestを受け、Session確認と<code>authorized()</code>へつなぐ。</p>
+        </article>
+
+        <article class="code-card">
+          <header>Destructuring <span>JavaScript syntax</span></header>
+          <pre><code>authorized(data) {
+  const auth = data.auth;
+  const nextUrl = data.request.nextUrl;
+}</code></pre>
+          <p><code>request: { nextUrl }</code>はNextAuth専用構文ではなく分割代入。</p>
+        </article>
+
+        <article class="code-card">
+          <header>Credentials sign-in <span>Server Action</span></header>
+          <pre><code>await signIn('credentials', formData);</code></pre>
+          <p>Providerを選び、FormDataのcredentialとredirect先をAuth.jsへ渡す。</p>
+        </article>
+
+        <article class="code-card">
+          <header>Password check <span>Runtime</span></header>
+          <pre><code>await bcrypt.compare(
+  plainPassword,
+  storedHash
+);</code></pre>
+          <p>保存用hashの生成ではなく、入力された平文と既存hashの照合。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="corrections">
+      <div class="section-head">
+        <span class="section-no">05</span>
+        <div>
+          <p class="section-kicker">Mental model corrections</p>
+          <h2>間違えやすい境界</h2>
+          <p class="section-intro">用語の暗記ではなく、何を判断し、どの時点で実行されるかを修正する。</p>
+        </div>
+      </div>
+
+      <div class="corrections">
+        <div class="correction">
+          <div class="before"><small>Before</small>matcherが認証要否を決める</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="after"><small>After</small>matcherはProxyを実行するRequestを選ぶ</div>
+        </div>
+        <div class="correction">
+          <div class="before"><small>Before</small><code>auth</code>はCookieそのもの</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="after"><small>After</small>Auth.jsがCookie / Sessionを処理した現在の認証情報</div>
+        </div>
+        <div class="correction">
+          <div class="before"><small>Before</small><code>return user</code>ですぐ<code>auth.user</code></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="after"><small>After</small>Session / Cookieと次のRequestを経て<code>auth.user</code>になる</div>
+        </div>
+        <div class="correction">
+          <div class="before"><small>Before</small>TypeScriptのUser型がDB結果を検証</div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="after"><small>After</small>型はcompile-time。runtime validationはZodなど別の責務</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="review">
+      <div class="section-head">
+        <span class="section-no">06</span>
+        <div>
+          <p class="section-kicker">Self-check</p>
+          <h2>流れを再構成できるか？</h2>
+          <p class="section-intro">Questionを開く前に、自分の言葉で説明してみる。</p>
+        </div>
+      </div>
+
+      <div class="review-grid">
+        <details>
+          <summary>matcherとauthorized()は何を判断する？</summary>
+          <p>matcherはProxyを実行するRequestか、authorized()は現在の認証情報でそのURLへ通すかを判断する。</p>
+        </details>
+        <details>
+          <summary>authorize()を実際に呼ぶのは誰？</summary>
+          <p><code>signIn("credentials")</code>で選ばれたCredentials Providerを通じてAuth.js / NextAuthが呼ぶ。</p>
+        </details>
+        <details>
+          <summary>なぜLogin成功後にproxy.tsが再実行される？</summary>
+          <p>RedirectによりBrowserがcallbackUrlへ新しいHTTP Requestを送るため。そのRequestはSession Cookieを持つ。</p>
+        </details>
+        <details>
+          <summary>return userからauth.userまでに何がある？</summary>
+          <p>Auth.jsの認証成功判断、Session / JWT / Cookie処理、Redirect、後続RequestでのSession読み取りがある。</p>
+        </details>
+        <details>
+          <summary>TypeScript型とZodの差は？</summary>
+          <p>TypeScript型はcompile-timeの支援。Zodは実行時の値を検証する。</p>
+        </details>
+        <details>
+          <summary>callbackUrlとredirectToはどうつながる？</summary>
+          <p>Login URLのcallbackUrlを画面が読み、hidden inputのredirectToとしてFormDataへ入れ、成功時の移動先としてAuth.jsへ渡す。</p>
+        </details>
+      </div>
+    </section>
+
+    <footer class="footer-card">
+      <div>
+        <strong>これはderived visual artifactです。</strong>
+        <p>詳細、根拠、全code、Mermaid、review questionsのcanonical sourceはMarkdownにあります。</p>
+      </div>
+      <a href="../nextjs-authentication.md">Markdownを読む →</a>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      const tabs = [...document.querySelectorAll('[data-flow]')];
+      const panels = [...document.querySelectorAll('.flow-panel')];
+
+      function activate(tab) {
+        const target = `flow-${tab.dataset.flow}`;
+        tabs.forEach((item) => {
+          const selected = item === tab;
+          item.setAttribute('aria-selected', String(selected));
+          item.tabIndex = selected ? 0 : -1;
+        });
+        panels.forEach((panel) => panel.classList.toggle('is-active', panel.id === target));
+      }
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+          event.preventDefault();
+          const delta = event.key === 'ArrowRight' ? 1 : -1;
+          const next = tabs[(index + delta + tabs.length) % tabs.length];
+          activate(next);
+          next.focus();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

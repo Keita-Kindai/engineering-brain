@@ -11,7 +11,7 @@ fi
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 brain_root="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 canonical_root="$brain_root/agent-tools/skills"
-skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance)
+skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance learning-note)
 host_roots=("$HOME/.agents/skills" "$HOME/.claude/skills")
 
 conflicts=0
@@ -70,4 +70,3 @@ for host_root in "${host_roots[@]}"; do
 done
 
 "$0" --check
-
