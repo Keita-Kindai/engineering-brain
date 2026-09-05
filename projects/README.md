@@ -4,6 +4,7 @@ Public に保存できる登録済み Project の index です。未登録 Proje
 
 | Project ID | Repository identity | Status | Overview |
 | --- | --- | --- | --- |
+| custom-contest | github.com/Keita-Kindai/custom-contest | active | [Overview](custom-contest/overview.md) |
 
 Project lookup は exact local mapping、normalized Git remote、Project ID / directory basename の順で行い、候補が曖昧なら User に確認します。
 

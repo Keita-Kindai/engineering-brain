@@ -11,3 +11,6 @@
 
 - [2026-08-31 — Engineering Brain Version 1 bootstrap](recent/2026-08-31-engineering-brain-v1-bootstrap.md)
 - [2026-09-03 — Learning Note and Visual HTML workflow](recent/2026-09-03-learning-note-visual-workflow.md)
+- [2026-09-03 — Public submission data boundary correction](recent/2026-09-03-public-submission-data-boundary.md)
+- [2026-09-04 — Custom Contest interrupted-agent takeover](recent/2026-09-04-custom-contest-agent-takeover.md)
+- [2026-09-05 — Adding a second visual identity and frontend](recent/2026-09-05-second-skin-practice-frontend.md)

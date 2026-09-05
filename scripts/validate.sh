@@ -14,7 +14,13 @@ required_dirs=(
   sessions/recent sessions/archive maintenance/reports templates
   agent-tools/skills .agents/skills .claude/skills .private .local
 )
-skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance learning-note)
+skills=()
+for skill_dir in agent-tools/skills/*; do
+  [[ -d "$skill_dir" ]] || continue
+  skills+=("$(basename "$skill_dir")")
+done
+
+[[ "${#skills[@]}" -gt 0 ]] || { echo "No canonical skills found in agent-tools/skills" >&2; exit 1; }
 
 for dir in "${required_dirs[@]}"; do
   [[ -d "$dir" ]] || { echo "Missing directory: $dir" >&2; exit 1; }

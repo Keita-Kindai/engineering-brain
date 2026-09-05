@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grilling"
+  short_description: "Stress-test thinking one question round at a time"
+  default_prompt: "Use $grilling to stress-test this plan before we act on it."

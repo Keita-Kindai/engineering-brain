@@ -11,7 +11,17 @@ fi
 script_dir="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 brain_root="$(CDPATH= cd -- "$script_dir/.." && pwd)"
 canonical_root="$brain_root/agent-tools/skills"
-skills=(brain-recall brain-learn brain-continue brain-capture brain-maintenance learning-note)
+skills=()
+for skill_dir in "$canonical_root"/*; do
+  [[ -d "$skill_dir" ]] || continue
+  skills+=("$(basename "$skill_dir")")
+done
+
+if [[ "${#skills[@]}" -eq 0 ]]; then
+  echo "No canonical skills found in $canonical_root" >&2
+  exit 1
+fi
+
 host_roots=("$HOME/.agents/skills" "$HOME/.claude/skills")
 
 conflicts=0
