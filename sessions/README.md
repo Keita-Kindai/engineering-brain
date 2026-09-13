@@ -14,3 +14,5 @@
 - [2026-09-03 — Public submission data boundary correction](recent/2026-09-03-public-submission-data-boundary.md)
 - [2026-09-04 — Custom Contest interrupted-agent takeover](recent/2026-09-04-custom-contest-agent-takeover.md)
 - [2026-09-05 — Adding a second visual identity and frontend](recent/2026-09-05-second-skin-practice-frontend.md)
+- [2026-09-07 — LAN demo tunnel and stacked branch topology](recent/2026-09-07-lan-demo-tunnel-and-branch-topology.md)
+- [2026-09-09 — Problem set persistence, accounts, and the first public deploy](recent/2026-09-09-problem-set-persistence-and-deploy.md)

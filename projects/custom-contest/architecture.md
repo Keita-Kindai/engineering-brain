@@ -1,6 +1,6 @@
 ---
 project: custom-contest
-updated: 2026-09-05
+updated: 2026-09-09
 ---
 
 # Architecture
@@ -25,9 +25,21 @@ packages/domain     framework非依存のrule、状態機械、問題pool、cata
 
 # 精進側
 
-- 対戦側とは独立したroute（`/discover`、`/sets/*`、`/library`）とshell
-- 問題catalogは事前生成した固定JSON（約3300問）。server側で検索し、clientへは配らない
-- 問題セットの読み書きはrepository interfaceの背後。現在はfixture + browser内保存
+- 対戦側とは独立したroute（`/discover`、`/sets/*`、`/library`、`/settings`、`/signin`）とshell
+- 問題セットはPostgreSQL。`repository.ts` は `/api/problem-sets/*` を叩くだけで、
+  持ち主やいいねの本人はserverが `auth()` から決める。clientは誰なのかを送らない
+- 公開範囲の判定は `server/problem-sets/queries.ts` に置く。画面で隠すだけではURL直打ちで素通りする
+- 「無い」と「見せてよくない」はどちらも404。区別するとIDの総当たりで非公開セットの存在を確認できる
+- 問題catalogは2か所にある。**検索は固定JSON**（4,764問、buildに同梱）、
+  **DBの `problems` table**は外部キーの参照先と表示時のJOIN。書き手はdeployごとのseed scriptだけ
+  （[[keep-the-hottest-read-off-a-metered-database]]）
+- 挑戦状態はセットの中で閉じる。key は `(user_id, set_id, problem_id)`
+
+# 配備
+
+Vercel（Root Directory = `apps/web`）+ Neon。`vercel-build` が
+`db:migrate` → `db:seed-problems` → `next build` の順に走る。
+認証はAuth.js v5 + DrizzleAdapter、GitHub OAuth。session はDBに置く。
 
 # 見た目
 
@@ -35,6 +47,7 @@ packages/domain     framework非依存のrule、状態機械、問題pool、cata
 semantic（色、書体）だけをskinごとに定義する。
 
 - 対戦: dark + 緑accent
-- 精進: light + 橙accent（`[data-skin="practice"]`）
+- 精進: light + 橙accent（`[data-skin="practice"]`）。
+  ダークは`<html>`の`data-practice-theme`で上書きし、近黒とグレーの2案をヘッダーで切り替える
 
 CSS class名は精進側を`ps-` / `practice-`で始めて衝突を避ける。

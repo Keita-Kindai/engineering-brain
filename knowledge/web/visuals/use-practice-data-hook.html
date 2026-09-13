@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="ja" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>usePracticeData — Visual Review</title>
+  <meta name="description" content="Custom Contestの精進側で使うdata取得hook。3つのstate、cancel flag、module-levelの購読、depsの約束を図で読む。">
+  <script>document.documentElement.classList.replace('no-js', 'js');</script>
+  <style>
+    :root {
+      --paper: #f2efe7;
+      --paper-deep: #e6e1d4;
+      --ink: #1d2b3a;
+      --muted: #5d6b78;
+      --line: #c8c2b5;
+      --white: #fffdf8;
+
+      /* 役割の色。図・見出し・凡例で同じ色を同じ意味に使う。 */
+      --state: #4a49bd;
+      --state-soft: #e8e8ff;
+      --effect: #bd6318;
+      --effect-soft: #fdeddd;
+      --net: #0c7c72;
+      --net-soft: #dcf3f0;
+      --store: #7a4fa3;
+      --store-soft: #f0e6f8;
+      --danger: #a8383a;
+      --danger-soft: #fbe6e5;
+
+      --shadow: 0 18px 50px rgba(29, 43, 58, .11);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 3%, rgba(74, 73, 189, .12), transparent 27rem),
+        radial-gradient(circle at 95% 22%, rgba(12, 124, 114, .11), transparent 30rem),
+        var(--paper);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+      line-height: 1.75;
+    }
+
+    a { color: inherit; }
+
+    code, pre, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    code {
+      padding: .1em .35em;
+      border-radius: 5px;
+      background: rgba(29, 43, 58, .07);
+      font-size: .9em;
+    }
+
+    .skip-link {
+      position: fixed;
+      left: 1rem;
+      top: -5rem;
+      z-index: 20;
+      padding: .7rem 1rem;
+      border-radius: 999px;
+      background: var(--ink);
+      color: white;
+    }
+
+    .skip-link:focus { top: 1rem; }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin-inline: auto;
+    }
+
+    /* --- hero ------------------------------------------------------------ */
+
+    .hero { padding: 34px 0 26px; }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 44px;
+      font-size: .8rem;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      border-bottom: 1px solid currentColor;
+      text-decoration: none;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(330px, .8fr);
+      gap: clamp(28px, 5vw, 70px);
+      align-items: center;
+    }
+
+    .eyebrow,
+    .section-kicker {
+      margin: 0 0 .75rem;
+      color: var(--net);
+      font-size: .76rem;
+      font-weight: 850;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 760px;
+      margin-bottom: 1.2rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.6rem, 7vw, 5.4rem);
+      font-weight: 500;
+      letter-spacing: -.05em;
+      line-height: .95;
+    }
+
+    .hero-lede {
+      max-width: 640px;
+      margin-bottom: 1.6rem;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.2rem);
+    }
+
+    .sig-card {
+      position: relative;
+      padding: 24px;
+      overflow: hidden;
+      border-radius: 30px;
+      background: var(--ink);
+      color: #eef3f6;
+      box-shadow: var(--shadow);
+    }
+
+    .sig-card::before {
+      content: "";
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      top: -150px;
+      right: -100px;
+      border: 56px solid rgba(220, 243, 240, .07);
+      border-radius: 50%;
+    }
+
+    .sig-label {
+      position: relative;
+      color: #9fb5c4;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .sig-card pre {
+      position: relative;
+      margin: 14px 0 0;
+      overflow-x: auto;
+      font-size: .84rem;
+      line-height: 1.65;
+    }
+
+    .sig-card .k { color: #9db2ff; }
+    .sig-card .t { color: #7fd6c8; }
+    .sig-card .c { color: #8e9fae; }
+
+    /* --- nav ------------------------------------------------------------- */
+
+    .quick-nav {
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      display: flex;
+      gap: 5px;
+      width: fit-content;
+      max-width: 100%;
+      margin: 4px auto 40px;
+      padding: 6px;
+      overflow-x: auto;
+      border: 1px solid rgba(29, 43, 58, .12);
+      border-radius: 999px;
+      background: rgba(255, 253, 248, .88);
+      box-shadow: 0 10px 30px rgba(29, 43, 58, .08);
+      backdrop-filter: blur(12px);
+    }
+
+    .quick-nav a {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 750;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .quick-nav a:hover,
+    .quick-nav a:focus-visible {
+      background: var(--ink);
+      color: white;
+      outline: none;
+    }
+
+    /* --- sections -------------------------------------------------------- */
+
+    main { padding-bottom: 80px; }
+
+    section {
+      margin: 0 0 72px;
+      scroll-margin-top: 90px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 26px;
+    }
+
+    .section-no {
+      padding-top: 10px;
+      color: var(--muted);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    h2 {
+      margin-bottom: .35rem;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.9rem, 4.6vw, 3.2rem);
+      font-weight: 500;
+      letter-spacing: -.035em;
+      line-height: 1.05;
+    }
+
+    .section-intro {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .card {
+      padding: clamp(20px, 3.4vw, 32px);
+      border-radius: var(--radius);
+      background: var(--white);
+      box-shadow: 0 12px 35px rgba(29, 43, 58, .07);
+    }
+
+    .card + .card { margin-top: 18px; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .role { border-top: 7px solid var(--line); }
+    .role.state { border-top-color: var(--state); }
+    .role.effect { border-top-color: var(--effect); }
+    .role.net { border-top-color: var(--net); }
+    .role.store { border-top-color: var(--store); }
+    .role.danger { border-top-color: var(--danger); }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .state .tag { color: var(--state); background: var(--state-soft); }
+    .effect .tag { color: var(--effect); background: var(--effect-soft); }
+    .net .tag { color: var(--net); background: var(--net-soft); }
+    .store .tag { color: var(--store); background: var(--store-soft); }
+    .danger .tag { color: var(--danger); background: var(--danger-soft); }
+
+    .card h3 {
+      margin-bottom: .5rem;
+      font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+    }
+
+    .card p { margin-bottom: 0; }
+    .card p + p { margin-top: .8rem; }
+
+    .card dl {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 8px 14px;
+      margin: 16px 0 0;
+      font-size: .9rem;
+    }
+
+    .card dt { color: var(--muted); font-weight: 750; }
+    .card dd { margin: 0; }
+
+    /* --- figures --------------------------------------------------------- */
+
+    figure {
+      margin: 0;
+      padding: clamp(16px, 3vw, 26px);
+      border: 1px solid rgba(29, 43, 58, .12);
+      border-radius: 28px;
+      background: rgba(255, 253, 248, .72);
+      box-shadow: var(--shadow);
+    }
+
+    .fig-scroll { overflow-x: auto; }
+
+    figure svg {
+      display: block;
+      width: 100%;
+      min-width: 640px;
+      height: auto;
+    }
+
+    figcaption {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: .86rem;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin: 0 0 18px;
+      padding: 0;
+      list-style: none;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .legend li {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+    }
+
+    .legend i {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--line);
+    }
+
+    .legend .l-state { background: var(--state); }
+    .legend .l-effect { background: var(--effect); }
+    .legend .l-net { background: var(--net); }
+    .legend .l-store { background: var(--store); }
+    .legend .l-danger { background: var(--danger); }
+
+    /* --- tabs ------------------------------------------------------------ */
+
+    .flow-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .flow-tab {
+      appearance: none;
+      padding: 10px 15px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: .84rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .flow-tab[aria-selected="true"] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: white;
+    }
+
+    .flow-tab:focus-visible {
+      outline: 3px solid rgba(74, 73, 189, .3);
+      outline-offset: 2px;
+    }
+
+    .js .flow-panel:not(.is-active) { display: none; }
+    .no-js .flow-tabs { display: none; }
+
+    .flow-panel + .flow-panel { margin-top: 26px; }
+
+    /* --- code ------------------------------------------------------------ */
+
+    .code {
+      margin: 18px 0 0;
+      padding: 18px 20px;
+      overflow-x: auto;
+      border-radius: 16px;
+      background: var(--ink);
+      color: #eef3f6;
+      font-size: .84rem;
+      line-height: 1.7;
+    }
+
+    .code .k { color: #9db2ff; }
+    .code .t { color: #7fd6c8; }
+    .code .c { color: #8e9fae; }
+    .code .hl { background: rgba(125, 214, 200, .17); border-radius: 4px; }
+
+    /* --- tables ---------------------------------------------------------- */
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: .9rem;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid rgba(29, 43, 58, .12);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: .74rem;
+      font-weight: 850;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* --- callouts -------------------------------------------------------- */
+
+    .note {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-left: 4px solid var(--state);
+      border-radius: 0 14px 14px 0;
+      background: var(--state-soft);
+      font-size: .92rem;
+    }
+
+    .note.warn {
+      border-left-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .note b { display: block; }
+
+    .note .mark {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--state);
+      color: white;
+      font-size: .8rem;
+      font-weight: 800;
+    }
+
+    .note.warn .mark { background: var(--danger); }
+
+    ul.plain {
+      margin: 14px 0 0;
+      padding-left: 1.2rem;
+    }
+
+    ul.plain li { margin-bottom: .5rem; }
+
+    footer {
+      padding: 30px 0 60px;
+      border-top: 1px solid rgba(29, 43, 58, .14);
+      color: var(--muted);
+      font-size: .84rem;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid, .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+      .section-head { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+      .card dl { grid-template-columns: minmax(0, 1fr); gap: 2px 0; }
+      .card dt { margin-top: .6rem; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#main">本文へ</a>
+
+<div class="shell">
+  <header class="hero">
+    <div class="topline">
+      <span>Custom Contest · Practice side</span>
+      <span class="mono">apps/web/src/app/_practice/use-practice-data.ts</span>
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">React data hook</p>
+        <h1>usePracticeData</h1>
+        <p class="hero-lede">
+          46行。<code>fetch</code>の結果をReactへ渡すだけの小さなhookだが、
+          <strong>競合する応答の破棄</strong>、<strong>再取得中も画面を空にしない</strong>、
+          <strong>書き込みの後に全一覧を取り直す</strong>の3つを引き受けている。
+          その3つがどう実現されているかを図で追う。
+        </p>
+        <ul class="legend">
+          <li><i class="l-state"></i>state（React内部）</li>
+          <li><i class="l-effect"></i>effect（副作用）</li>
+          <li><i class="l-net"></i>network（repository → API）</li>
+          <li><i class="l-store"></i>store（module-levelの購読）</li>
+          <li><i class="l-danger"></i>破棄・落とし穴</li>
+        </ul>
+      </div>
+
+      <div class="sig-card">
+        <p class="sig-label">Signature</p>
+<pre><span class="k">export function</span> usePracticeData&lt;<span class="t">T</span>&gt;(
+  load: () =&gt; <span class="t">Promise</span>&lt;<span class="t">T</span>&gt;,
+  deps: <span class="t">unknown</span>[],
+): {
+  data: <span class="t">T</span> | <span class="k">null</span>;   <span class="c">// 未取得はnull</span>
+  loading: <span class="t">boolean</span>;  <span class="c">// 初回だけtrue</span>
+  reload: () =&gt; <span class="t">void</span>; <span class="c">// 手動の取り直し</span>
+}</pre>
+      </div>
+    </div>
+  </header>
+
+  <nav class="quick-nav" aria-label="目次">
+    <a href="#overview">00 全体像</a>
+    <a href="#states">01 3つのstate</a>
+    <a href="#fetch">02 取得とcancel</a>
+    <a href="#loading">03 loadingは片道</a>
+    <a href="#store">04 書き込みの通知</a>
+    <a href="#deps">05 depsの約束</a>
+    <a href="#callers">06 使われ方</a>
+    <a href="#limits">07 やらないこと</a>
+  </nav>
+
+  <main id="main">
+
+    <!-- 00 -->
+    <section id="overview">
+      <div class="section-head">
+        <p class="section-no">00</p>
+        <div>
+          <p class="section-kicker">Overview</p>
+          <h2>全体像</h2>
+          <p class="section-intro">
+            登場人物は4つ。画面（View）、hook、<code>repository</code>、そしてrepositoryの中にある
+            module-levelの購読リスト。hookはこの真ん中に座り、両側からの合図で動く。
+          </p>
+        </div>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 860 330" role="img" aria-labelledby="fig-overview-title">
+            <title id="fig-overview-title">usePracticeDataの位置関係</title>
+            <defs>
+              <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d2b3a"></path>
+              </marker>
+              <marker id="ar-store" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#7a4fa3"></path>
+              </marker>
+            </defs>
+
+            <!-- View -->
+            <rect x="20" y="90" width="180" height="110" rx="16" fill="#fffdf8" stroke="#c8c2b5"></rect>
+            <text x="110" y="122" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2b3a">View</text>
+            <text x="110" y="146" text-anchor="middle" font-size="12" fill="#5d6b78">DiscoverView</text>
+            <text x="110" y="164" text-anchor="middle" font-size="12" fill="#5d6b78">LibraryView</text>
+            <text x="110" y="182" text-anchor="middle" font-size="12" fill="#5d6b78">SetDetailView</text>
+
+            <!-- Hook -->
+            <rect x="285" y="70" width="200" height="150" rx="16" fill="#e8e8ff" stroke="#4a49bd" stroke-width="2"></rect>
+            <text x="385" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="#4a49bd">usePracticeData</text>
+            <text x="385" y="126" text-anchor="middle" font-size="12" fill="#3a3a7a">data / loading / nonce</text>
+            <text x="385" y="152" text-anchor="middle" font-size="12" fill="#bd6318" font-weight="700">effect 1: 取得</text>
+            <text x="385" y="174" text-anchor="middle" font-size="12" fill="#bd6318" font-weight="700">effect 2: 購読</text>
+            <text x="385" y="200" text-anchor="middle" font-size="11" fill="#5d6b78">cancel flagで古い応答を捨てる</text>
+
+            <!-- repository -->
+            <rect x="570" y="40" width="180" height="100" rx="16" fill="#dcf3f0" stroke="#0c7c72" stroke-width="2"></rect>
+            <text x="660" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#0c7c72">repository</text>
+            <text x="660" y="94" text-anchor="middle" font-size="12" fill="#0a5f58">discover / get / save …</text>
+            <text x="660" y="118" text-anchor="middle" font-size="12" fill="#0a5f58">fetch(/api/problem-sets)</text>
+
+            <!-- listeners -->
+            <rect x="570" y="185" width="180" height="90" rx="16" fill="#f0e6f8" stroke="#7a4fa3" stroke-width="2"></rect>
+            <text x="660" y="215" text-anchor="middle" font-size="14" font-weight="700" fill="#7a4fa3">listeners</text>
+            <text x="660" y="237" text-anchor="middle" font-size="12" fill="#5d3b78">Set&lt;() =&gt; void&gt;</text>
+            <text x="660" y="257" text-anchor="middle" font-size="11" fill="#5d3b78">module-level・tab内だけ</text>
+
+            <!-- arrows -->
+            <line x1="200" y1="125" x2="278" y2="125" stroke="#1d2b3a" stroke-width="2" marker-end="url(#ar)"></line>
+            <text x="239" y="115" text-anchor="middle" font-size="11" fill="#5d6b78">load, deps</text>
+
+            <line x1="278" y1="165" x2="200" y2="165" stroke="#1d2b3a" stroke-width="2" marker-end="url(#ar)"></line>
+            <text x="239" y="184" text-anchor="middle" font-size="11" fill="#5d6b78">data, loading</text>
+
+            <line x1="485" y1="105" x2="563" y2="90" stroke="#0c7c72" stroke-width="2" marker-end="url(#ar)"></line>
+            <text x="524" y="90" text-anchor="middle" font-size="11" fill="#0c7c72">load()</text>
+
+            <line x1="563" y1="225" x2="492" y2="195" stroke="#7a4fa3" stroke-width="2" marker-end="url(#ar-store)"></line>
+            <text x="527" y="228" text-anchor="middle" font-size="11" fill="#7a4fa3">reload()</text>
+
+            <path d="M 660 140 L 660 185" stroke="#7a4fa3" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar-store)"></path>
+            <text x="672" y="168" font-size="11" fill="#7a4fa3">notify()</text>
+
+            <text x="430" y="300" text-anchor="middle" font-size="12" fill="#5d6b78">
+              左からの合図＝depsが変わった。右からの合図＝誰かが書き込んだ。どちらも同じ「取り直し」に落ちる。
+            </text>
+          </svg>
+        </div>
+        <figcaption>
+          hookは<strong>2方向から起動される</strong>。Viewがdepsを変えたとき（検索語、タブ、setId）と、
+          repositoryが書き込みを終えて<code>notify()</code>したとき。
+        </figcaption>
+      </figure>
+
+      <div class="card role state" style="margin-top:18px">
+        <span class="tag">Why it exists</span>
+        <h3>なぜ生のuseEffectを毎回書かないのか</h3>
+        <p>
+          このhookが無いと、6か所の呼び出しすべてで「<code>useState</code>を2つ置き、<code>useEffect</code>で
+          <code>fetch</code>し、cancel flagを立て、書き込み後の取り直しを購読する」を書き写すことになる。
+          写し間違いが起きるのはたいてい<strong>cancel flag</strong>と<strong>購読の解除</strong>で、
+          どちらも症状が出るのが遅い（古い結果が一瞬出る、離れた画面が更新されない）。
+        </p>
+        <p>
+          もう1つの目的は<strong>差し替えの一点化</strong>。localStorage版からDB版へ移したとき、
+          repositoryの中身は全部書き換わったが、このhookと呼び出し側は変えていない。
+        </p>
+      </div>
+    </section>
+
+    <!-- 01 -->
+    <section id="states">
+      <div class="section-head">
+        <p class="section-no">01</p>
+        <div>
+          <p class="section-kicker">State</p>
+          <h2>3つのstate</h2>
+          <p class="section-intro">
+            <code>data</code>と<code>loading</code>は画面に出る値。<code>nonce</code>は出ない値で、
+            「もう一度effectを走らせる」ためだけに存在する。
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card role state">
+          <span class="tag">state 1</span>
+          <h3>data</h3>
+          <p><code>T | null</code>。初期値は<code>null</code>。取得が成功したときだけ入れ替わる。</p>
+          <dl>
+            <dt>nullの意味</dt>
+            <dd>まだ一度も成功していない（取得中、または失敗した）</dd>
+            <dt>失敗時</dt>
+            <dd><code>null</code>のまま。前回の成功値があればそれを保つ</dd>
+          </dl>
+        </div>
+
+        <div class="card role state">
+          <span class="tag">state 2</span>
+          <h3>loading</h3>
+          <p>初期値<code>true</code>。最初の決着（成功でも失敗でも）で<code>false</code>になり、<strong>二度と<code>true</code>へ戻らない</strong>。</p>
+          <dl>
+            <dt>意味</dt>
+            <dd>「まだ1件も描けない」であって「通信中」ではない</dd>
+            <dt>用途</dt>
+            <dd>スケルトンを出すか、実物を出すかの分岐</dd>
+          </dl>
+        </div>
+
+        <div class="card role state">
+          <span class="tag">state 3</span>
+          <h3>nonce</h3>
+          <p>ただの整数カウンタ。値そのものは誰も読まない。<code>reload()</code>が1増やす。</p>
+          <dl>
+            <dt>なぜ必要</dt>
+            <dd>effectはdepsが変わったときしか走らない。depsが同じままで再実行させる唯一の手が、依存に入れた数を動かすこと</dd>
+            <dt>別名</dt>
+            <dd>refresh key、reload token と呼ばれる定番の型</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="mark" aria-hidden="true">i</span>
+        <span>
+          <b><code>reload</code>は毎renderで作り直さない。</b>
+          <code>useCallback(..., [])</code>で固定してあるので、effect 2（購読）の依存<code>[reload]</code>が動かず、
+          <strong>購読と解除はmount時とunmount時の各1回だけ</strong>になる。ここを固定し忘れると、
+          renderのたびに購読し直す。
+        </span>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section id="fetch">
+      <div class="section-head">
+        <p class="section-no">02</p>
+        <div>
+          <p class="section-kicker">Effect 1</p>
+          <h2>取得と、古い応答の破棄</h2>
+          <p class="section-intro">
+            hookの心臓。<code>load()</code>を呼び、返ってきたらstateへ入れる。
+            ただし<strong>「返ってきた時点でまだ自分が最新か」</strong>を必ず確かめる。
+          </p>
+        </div>
+      </div>
+
+      <div class="code">
+<pre><span class="k">useEffect</span>(() =&gt; {
+  <span class="hl"><span class="k">let</span> cancelled = <span class="k">false</span>;</span>
+  load()
+    .then((value) =&gt; {
+      <span class="hl"><span class="k">if</span> (!cancelled)</span> { setData(value); setLoading(<span class="k">false</span>); }
+    })
+    .catch(() =&gt; {
+      <span class="hl"><span class="k">if</span> (!cancelled)</span> setLoading(<span class="k">false</span>);
+    });
+  <span class="k">return</span> () =&gt; { <span class="hl">cancelled = <span class="k">true</span>;</span> };  <span class="c">// 次のrunの直前に呼ばれる</span>
+}, [...deps, nonce]);</pre>
+      </div>
+
+      <div class="flow-tabs" role="tablist" aria-label="取得の流れ">
+        <button class="flow-tab" role="tab" id="tab-normal" aria-controls="panel-normal" aria-selected="true" type="button">正常な1回</button>
+        <button class="flow-tab" role="tab" id="tab-race" aria-controls="panel-race" aria-selected="false" type="button">追い越しが起きた場合</button>
+      </div>
+
+      <div class="flow-panel is-active" id="panel-normal" role="tabpanel" aria-labelledby="tab-normal">
+        <figure>
+          <div class="fig-scroll">
+            <svg viewBox="0 0 860 340" role="img" aria-labelledby="fig-normal-title">
+              <title id="fig-normal-title">正常な1回の取得のシーケンス</title>
+              <defs>
+                <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d2b3a"></path>
+                </marker>
+              </defs>
+
+              <!-- actors -->
+              <rect x="30" y="14" width="150" height="34" rx="10" fill="#fffdf8" stroke="#c8c2b5"></rect>
+              <text x="105" y="36" text-anchor="middle" font-size="13" font-weight="700">View</text>
+              <rect x="270" y="14" width="150" height="34" rx="10" fill="#e8e8ff" stroke="#4a49bd"></rect>
+              <text x="345" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#4a49bd">hook (effect run)</text>
+              <rect x="510" y="14" width="150" height="34" rx="10" fill="#dcf3f0" stroke="#0c7c72"></rect>
+              <text x="585" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#0c7c72">repository</text>
+              <rect x="720" y="14" width="120" height="34" rx="10" fill="#fffdf8" stroke="#c8c2b5"></rect>
+              <text x="780" y="36" text-anchor="middle" font-size="13" font-weight="700">Route Handler</text>
+
+              <!-- lifelines -->
+              <line x1="105" y1="48" x2="105" y2="320" stroke="#c8c2b5" stroke-dasharray="4 5"></line>
+              <line x1="345" y1="48" x2="345" y2="320" stroke="#4a49bd" stroke-dasharray="4 5"></line>
+              <line x1="585" y1="48" x2="585" y2="320" stroke="#0c7c72" stroke-dasharray="4 5"></line>
+              <line x1="780" y1="48" x2="780" y2="320" stroke="#c8c2b5" stroke-dasharray="4 5"></line>
+
+              <!-- messages -->
+              <text x="225" y="80" text-anchor="middle" font-size="11.5" fill="#5d6b78">mount / depsが変わる</text>
+              <line x1="105" y1="90" x2="340" y2="90" stroke="#1d2b3a" stroke-width="1.8" marker-end="url(#ar2)"></line>
+
+              <rect x="256" y="100" width="178" height="22" rx="7" fill="#e8e8ff"></rect>
+              <text x="345" y="115" text-anchor="middle" font-size="11" fill="#4a49bd" font-weight="700">cancelled = false</text>
+
+              <text x="465" y="146" text-anchor="middle" font-size="11.5" fill="#5d6b78">load()</text>
+              <line x1="345" y1="156" x2="580" y2="156" stroke="#1d2b3a" stroke-width="1.8" marker-end="url(#ar2)"></line>
+
+              <text x="683" y="186" text-anchor="middle" font-size="11.5" fill="#5d6b78">GET /api/problem-sets?…</text>
+              <line x1="585" y1="196" x2="775" y2="196" stroke="#0c7c72" stroke-width="1.8" marker-end="url(#ar2)"></line>
+
+              <text x="683" y="226" text-anchor="middle" font-size="11.5" fill="#5d6b78">200 JSON</text>
+              <line x1="780" y1="236" x2="590" y2="236" stroke="#0c7c72" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#ar2)"></line>
+
+              <text x="465" y="266" text-anchor="middle" font-size="11.5" fill="#5d6b78">Promise resolve</text>
+              <line x1="585" y1="276" x2="350" y2="276" stroke="#1d2b3a" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#ar2)"></line>
+
+              <text x="225" y="306" text-anchor="middle" font-size="11.5" fill="#4a49bd" font-weight="700">setData / setLoading(false)</text>
+              <line x1="345" y1="316" x2="110" y2="316" stroke="#4a49bd" stroke-width="1.8" marker-end="url(#ar2)"></line>
+            </svg>
+          </div>
+          <figcaption>
+            cleanupが走っていないので<code>cancelled</code>は<code>false</code>のまま。結果はそのまま採用される。
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="flow-panel" id="panel-race" role="tabpanel" aria-labelledby="tab-race">
+        <figure>
+          <div class="fig-scroll">
+            <svg viewBox="0 0 860 400" role="img" aria-labelledby="fig-race-title">
+              <title id="fig-race-title">遅い応答が後から届いた場合のシーケンス</title>
+              <defs>
+                <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d2b3a"></path>
+                </marker>
+                <marker id="ar3d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#a8383a"></path>
+                </marker>
+              </defs>
+
+              <rect x="30" y="14" width="140" height="34" rx="10" fill="#fffdf8" stroke="#c8c2b5"></rect>
+              <text x="100" y="36" text-anchor="middle" font-size="13" font-weight="700">View</text>
+              <rect x="240" y="14" width="150" height="34" rx="10" fill="#e8e8ff" stroke="#4a49bd"></rect>
+              <text x="315" y="36" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4a49bd">run #1（"gr"）</text>
+              <rect x="470" y="14" width="150" height="34" rx="10" fill="#e8e8ff" stroke="#4a49bd"></rect>
+              <text x="545" y="36" text-anchor="middle" font-size="12.5" font-weight="700" fill="#4a49bd">run #2（"graph"）</text>
+              <rect x="700" y="14" width="140" height="34" rx="10" fill="#dcf3f0" stroke="#0c7c72"></rect>
+              <text x="770" y="36" text-anchor="middle" font-size="13" font-weight="700" fill="#0c7c72">API</text>
+
+              <line x1="100" y1="48" x2="100" y2="380" stroke="#c8c2b5" stroke-dasharray="4 5"></line>
+              <line x1="315" y1="48" x2="315" y2="380" stroke="#4a49bd" stroke-dasharray="4 5"></line>
+              <line x1="545" y1="48" x2="545" y2="380" stroke="#4a49bd" stroke-dasharray="4 5"></line>
+              <line x1="770" y1="48" x2="770" y2="380" stroke="#0c7c72" stroke-dasharray="4 5"></line>
+
+              <text x="207" y="76" text-anchor="middle" font-size="11.5" fill="#5d6b78">"gr" で検索</text>
+              <line x1="100" y1="86" x2="310" y2="86" stroke="#1d2b3a" stroke-width="1.8" marker-end="url(#ar3)"></line>
+
+              <text x="542" y="110" text-anchor="middle" font-size="11.5" fill="#5d6b78">遅いrequest A</text>
+              <line x1="315" y1="120" x2="765" y2="120" stroke="#0c7c72" stroke-width="1.8" marker-end="url(#ar3)"></line>
+
+              <text x="207" y="152" text-anchor="middle" font-size="11.5" fill="#5d6b78">"graph" に変わる</text>
+              <line x1="100" y1="162" x2="540" y2="162" stroke="#1d2b3a" stroke-width="1.8" marker-end="url(#ar3)"></line>
+
+              <rect x="222" y="176" width="186" height="24" rx="7" fill="#fbe6e5"></rect>
+              <text x="315" y="192" text-anchor="middle" font-size="11" fill="#a8383a" font-weight="700">cleanup: cancelled = true</text>
+
+              <text x="657" y="222" text-anchor="middle" font-size="11.5" fill="#5d6b78">速いrequest B</text>
+              <line x1="545" y1="232" x2="765" y2="232" stroke="#0c7c72" stroke-width="1.8" marker-end="url(#ar3)"></line>
+
+              <text x="657" y="262" text-anchor="middle" font-size="11.5" fill="#5d6b78">B の応答（"graph"の結果）</text>
+              <line x1="770" y1="272" x2="550" y2="272" stroke="#0c7c72" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#ar3)"></line>
+
+              <rect x="452" y="284" width="186" height="24" rx="7" fill="#e8e8ff"></rect>
+              <text x="545" y="300" text-anchor="middle" font-size="11" fill="#4a49bd" font-weight="700">cancelled=false → setData</text>
+
+              <text x="542" y="336" text-anchor="middle" font-size="11.5" fill="#a8383a">A の応答が遅れて到着（"gr"の結果）</text>
+              <line x1="770" y1="346" x2="320" y2="346" stroke="#a8383a" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#ar3d)"></line>
+
+              <rect x="222" y="358" width="186" height="24" rx="7" fill="#fbe6e5"></rect>
+              <text x="315" y="374" text-anchor="middle" font-size="11" fill="#a8383a" font-weight="700">cancelled=true → 破棄</text>
+            </svg>
+          </div>
+          <figcaption>
+            cancel flagが無いと、最後に画面へ残るのは<strong>「最後に送ったrequest」ではなく「最後に返ってきたrequest」</strong>になる。
+            検索欄では、打つのが速いほど古い語の結果が残りやすい。
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="note warn">
+        <span class="mark" aria-hidden="true">!</span>
+        <span>
+          <b>これは<code>fetch</code>のabortではない。</b>
+          通信自体は最後まで走り、応答も届く。捨てているのは<strong>結果の採用</strong>だけ。
+          通信を本当に止めるなら<code>AbortController</code>を<code>load</code>側へ渡す設計が要る。
+          現状は「requestが軽く、捨てるコストのほうが安い」という判断。
+        </span>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section id="loading">
+      <div class="section-head">
+        <p class="section-no">03</p>
+        <div>
+          <p class="section-kicker">One-way flag</p>
+          <h2>loadingは片道</h2>
+          <p class="section-intro">
+            再取得のたびに<code>setLoading(true)</code>へ戻す実装が普通だが、このhookは戻さない。
+            意図的な選択で、代償もある。
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card role effect">
+          <span class="tag">狙い</span>
+          <h3>条件を変えても画面が空にならない</h3>
+          <p>
+            Discoverでタグを1つ足すたびに<code>loading</code>が<code>true</code>へ戻ると、
+            そのたび一覧がスケルトンに置き換わって<strong>画面が点滅する</strong>。
+            前の結果を出したまま差し替えれば、視線の位置が動かない。
+          </p>
+          <p>
+            副次的に、effectの中で同期的に<code>setState</code>を呼ばずに済んでいる。
+            <code>load()</code>より前に<code>setLoading(true)</code>を置くと、
+            React 19のStrict Modeでの二重実行と噛み合わせが悪い。
+          </p>
+        </div>
+
+        <div class="card role danger">
+          <span class="tag">代償</span>
+          <h3>2回目以降は「取得中」が見えない</h3>
+          <p>
+            スケルトンが出るのは<strong>その画面で最初の1回だけ</strong>。
+            以降は古い結果が出たまま、いつの間にか新しい結果へ入れ替わる。
+            通信が遅いと「押したのに何も起きない」ように見える。
+          </p>
+          <p>
+            必要になったら<code>isRefreshing</code>のような2つ目のflagを足し、
+            一覧に薄い被せを出すのが素直な拡張。<code>loading</code>の意味は変えない。
+          </p>
+        </div>
+      </div>
+
+      <figure style="margin-top:18px">
+        <div class="fig-scroll">
+          <svg viewBox="0 0 860 210" role="img" aria-labelledby="fig-loading-title">
+            <title id="fig-loading-title">loadingとdataの時間変化</title>
+
+            <text x="20" y="42" font-size="12" font-weight="800" fill="#5d6b78">loading</text>
+            <text x="20" y="112" font-size="12" font-weight="800" fill="#5d6b78">data</text>
+            <text x="20" y="182" font-size="12" font-weight="800" fill="#5d6b78">画面</text>
+
+            <!-- loading lane -->
+            <rect x="110" y="24" width="180" height="26" rx="7" fill="#fdeddd" stroke="#bd6318"></rect>
+            <text x="200" y="42" text-anchor="middle" font-size="12" fill="#bd6318" font-weight="700">true</text>
+            <rect x="290" y="24" width="550" height="26" rx="7" fill="#f2efe7" stroke="#c8c2b5"></rect>
+            <text x="565" y="42" text-anchor="middle" font-size="12" fill="#5d6b78">false（もう戻らない）</text>
+
+            <!-- data lane -->
+            <rect x="110" y="94" width="180" height="26" rx="7" fill="#f2efe7" stroke="#c8c2b5"></rect>
+            <text x="200" y="112" text-anchor="middle" font-size="12" fill="#5d6b78">null</text>
+            <rect x="290" y="94" width="270" height="26" rx="7" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="425" y="112" text-anchor="middle" font-size="12" fill="#4a49bd" font-weight="700">1回目の結果</text>
+            <rect x="560" y="94" width="280" height="26" rx="7" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="700" y="112" text-anchor="middle" font-size="12" fill="#4a49bd" font-weight="700">2回目の結果</text>
+
+            <!-- screen lane -->
+            <rect x="110" y="164" width="180" height="26" rx="7" fill="#dcf3f0" stroke="#0c7c72"></rect>
+            <text x="200" y="182" text-anchor="middle" font-size="12" fill="#0c7c72" font-weight="700">スケルトン</text>
+            <rect x="290" y="164" width="270" height="26" rx="7" fill="#fffdf8" stroke="#c8c2b5"></rect>
+            <text x="425" y="182" text-anchor="middle" font-size="12" fill="#5d6b78">1回目の一覧</text>
+            <rect x="560" y="164" width="280" height="26" rx="7" fill="#fffdf8" stroke="#c8c2b5"></rect>
+            <text x="700" y="182" text-anchor="middle" font-size="12" fill="#5d6b78">1回目の一覧 → 差し替え</text>
+
+            <!-- markers -->
+            <line x1="290" y1="14" x2="290" y2="200" stroke="#4a49bd" stroke-width="1.5" stroke-dasharray="4 4"></line>
+            <text x="296" y="146" font-size="11" fill="#4a49bd">初回decided</text>
+            <line x1="560" y1="14" x2="560" y2="200" stroke="#7a4fa3" stroke-width="1.5" stroke-dasharray="4 4"></line>
+            <text x="566" y="146" font-size="11" fill="#7a4fa3">deps変化 / notify()</text>
+          </svg>
+        </div>
+        <figcaption>
+          2本目の縦線のところで再取得が始まるが、<code>loading</code>は動かないので画面は前の一覧を保つ。
+        </figcaption>
+      </figure>
+
+      <div class="note warn">
+        <span class="mark" aria-hidden="true">!</span>
+        <span>
+          <b>失敗しても<code>loading</code>は<code>false</code>になる。</b>
+          <code>catch</code>が握りつぶすので、<strong>hookは失敗を呼び出し側へ伝えない</strong>。
+          呼び出し側で<code>data === null</code>を「取得中」と読むと、失敗時に永久スケルトンになる。
+          分岐は必ず<code>loading</code>で書く。
+        </span>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section id="store">
+      <div class="section-head">
+        <p class="section-no">04</p>
+        <div>
+          <p class="section-kicker">Effect 2</p>
+          <h2>書き込みの通知</h2>
+          <p class="section-intro">
+            いいねを押した瞬間、押した場所だけでなく<strong>その画面のすべての一覧</strong>が取り直される。
+            仕組みはReactの外にある1つの<code>Set</code>。
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card role store">
+          <span class="tag">store側</span>
+          <h3>repository.ts</h3>
+          <div class="code" style="margin-top:0">
+<pre><span class="k">const</span> listeners = <span class="k">new</span> <span class="t">Set</span>&lt;() =&gt; <span class="t">void</span>&gt;();
+
+<span class="k">export function</span> subscribeProblemSets(l) {
+  listeners.add(l);
+  <span class="k">return</span> () =&gt; { listeners.delete(l); };  <span class="c">// 解除関数を返す</span>
+}
+
+<span class="k">function</span> notify() {
+  <span class="k">for</span> (<span class="k">const</span> l <span class="k">of</span> listeners) l();
+}</pre>
+          </div>
+        </div>
+
+        <div class="card role effect">
+          <span class="tag">hook側</span>
+          <h3>use-practice-data.ts</h3>
+          <div class="code" style="margin-top:0">
+<pre><span class="k">useEffect</span>(
+  () =&gt; subscribeProblemSets(reload),
+  [reload],
+);</pre>
+          </div>
+          <p style="margin-top:14px">
+            <code>subscribeProblemSets</code>が返す解除関数を、effectの戻り値へそのまま流している。
+            Reactはeffectの戻り値をcleanupとして扱うので、<strong>unmount時に自動で解除される</strong>。
+            1行で購読と後始末の両方が済んでいる。
+          </p>
+        </div>
+      </div>
+
+      <figure style="margin-top:18px">
+        <div class="fig-scroll">
+          <svg viewBox="0 0 860 360" role="img" aria-labelledby="fig-notify-title">
+            <title id="fig-notify-title">notifyの波及</title>
+            <defs>
+              <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#7a4fa3"></path>
+              </marker>
+              <marker id="ar4t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0c7c72"></path>
+              </marker>
+            </defs>
+
+            <rect x="20" y="150" width="150" height="60" rx="14" fill="#fffdf8" stroke="#c8c2b5"></rect>
+            <text x="95" y="176" text-anchor="middle" font-size="13" font-weight="700">♡ を押す</text>
+            <text x="95" y="196" text-anchor="middle" font-size="11" fill="#5d6b78">toggleLike(setId)</text>
+
+            <rect x="215" y="140" width="170" height="80" rx="14" fill="#dcf3f0" stroke="#0c7c72" stroke-width="2"></rect>
+            <text x="300" y="168" text-anchor="middle" font-size="13" font-weight="700" fill="#0c7c72">POST /like</text>
+            <text x="300" y="190" text-anchor="middle" font-size="11" fill="#0a5f58">200が返ってから</text>
+            <text x="300" y="208" text-anchor="middle" font-size="11" fill="#0a5f58">notify() を呼ぶ</text>
+
+            <circle cx="470" cy="180" r="46" fill="#f0e6f8" stroke="#7a4fa3" stroke-width="2"></circle>
+            <text x="470" y="177" text-anchor="middle" font-size="13" font-weight="700" fill="#7a4fa3">listeners</text>
+            <text x="470" y="196" text-anchor="middle" font-size="11" fill="#5d3b78">n個</text>
+
+            <line x1="170" y1="180" x2="210" y2="180" stroke="#0c7c72" stroke-width="2" marker-end="url(#ar4t)"></line>
+            <line x1="385" y1="180" x2="420" y2="180" stroke="#7a4fa3" stroke-width="2" marker-end="url(#ar4)"></line>
+
+            <!-- fan out -->
+            <rect x="600" y="30" width="240" height="46" rx="12" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="620" y="59" font-size="12.5" fill="#4a49bd" font-weight="700">results（検索結果）</text>
+            <rect x="600" y="90" width="240" height="46" rx="12" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="620" y="119" font-size="12.5" fill="#4a49bd" font-weight="700">fresh（新着）</text>
+            <rect x="600" y="150" width="240" height="46" rx="12" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="620" y="179" font-size="12.5" fill="#4a49bd" font-weight="700">loved（いいね順）</text>
+            <rect x="600" y="210" width="240" height="46" rx="12" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="620" y="239" font-size="12.5" fill="#4a49bd" font-weight="700">counts（件数）</text>
+            <rect x="600" y="270" width="240" height="46" rx="12" fill="#e8e8ff" stroke="#4a49bd"></rect>
+            <text x="620" y="299" font-size="12.5" fill="#4a49bd" font-weight="700">sets（タブの一覧）</text>
+
+            <path d="M 516 180 C 560 180 560 53 596 53" fill="none" stroke="#7a4fa3" stroke-width="1.6" marker-end="url(#ar4)"></path>
+            <path d="M 516 180 C 560 180 560 113 596 113" fill="none" stroke="#7a4fa3" stroke-width="1.6" marker-end="url(#ar4)"></path>
+            <path d="M 516 180 L 596 173" fill="none" stroke="#7a4fa3" stroke-width="1.6" marker-end="url(#ar4)"></path>
+            <path d="M 516 180 C 560 180 560 233 596 233" fill="none" stroke="#7a4fa3" stroke-width="1.6" marker-end="url(#ar4)"></path>
+            <path d="M 516 180 C 560 180 560 293 596 293" fill="none" stroke="#7a4fa3" stroke-width="1.6" marker-end="url(#ar4)"></path>
+
+            <text x="720" y="342" text-anchor="middle" font-size="11.5" fill="#5d6b78">
+              mountされているhookの数だけ reload() → nonce++ → effect 1 が再実行
+            </text>
+          </svg>
+        </div>
+        <figcaption>
+          <code>notify()</code>を呼ぶのは<strong>書き込み5つ</strong>だけ：<code>save</code>、<code>remove</code>、
+          <code>toggleLike</code>、<code>toggleBookmark</code>、<code>setSolveStatus</code>。
+          読み出しは呼ばない（呼ぶと無限ループになる）。<code>markRecent</code>も呼ばない。
+        </figcaption>
+      </figure>
+
+      <div class="grid-2" style="margin-top:18px">
+        <div class="card role store">
+          <span class="tag">性質</span>
+          <h3>粗いが、間違えようがない</h3>
+          <p>
+            どのhookが何のqueryを持っているかは見ていない。<strong>全員に「取り直せ」と言うだけ</strong>。
+            無駄なrequestは出るが（Discoverなら1回のいいねで3本）、
+            「更新したのに一覧が古いまま」は構造的に起きない。
+          </p>
+        </div>
+        <div class="card role danger">
+          <span class="tag">境界</span>
+          <h3>tabをまたがない</h3>
+          <p>
+            <code>listeners</code>はJavaScript moduleのtop-levelにある変数。
+            <strong>同じtabの中でしか共有されない</strong>。別tabや別端末の変更は届かない。
+            越えるには<code>BroadcastChannel</code>、polling、SSEのいずれかが要る。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section id="deps">
+      <div class="section-head">
+        <p class="section-no">05</p>
+        <div>
+          <p class="section-kicker">Contract</p>
+          <h2>depsの約束</h2>
+          <p class="section-intro">
+            このhookで唯一「使う側が守らないと壊れる」のがここ。
+            <code>eslint-disable</code>が1行入っているのは、その責任を呼び出し側へ移したという印。
+          </p>
+        </div>
+      </div>
+
+      <div class="card role danger">
+        <span class="tag">なぜdisableするのか</span>
+        <h3>lintは<code>load</code>の中身を追えない</h3>
+        <p>
+          <code>load</code>は呼び出し側で作られた関数で、その中でどの変数を読むかはhookから見えない。
+          <code>react-hooks/exhaustive-deps</code>は<code>[...deps, nonce]</code>のような
+          <strong>spreadを含む依存配列を検査できない</strong>ので、警告を出すしかない。
+          そこで検査を切り、代わりに「<code>load</code>が読む値は呼び出し側が<code>deps</code>へ全部書く」という約束にした。
+        </p>
+        <div class="code">
+<pre><span class="c">// discover-view.tsx —— queryはuseMemoで固定してから渡す</span>
+<span class="k">const</span> query = <span class="k">useMemo</span>&lt;<span class="t">DiscoverQuery</span>&gt;(
+  () =&gt; ({ q: keyword, tags, bands, sort, … }),
+  [keyword, tags, bands, sort],
+);
+
+<span class="k">const</span> results = usePracticeData(() =&gt; repo.discover(query), <span class="hl">[query]</span>);
+<span class="k">const</span> fresh   = usePracticeData(() =&gt; repo.featured(<span class="t">"new"</span>), <span class="hl">[]</span>);</pre>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:18px">
+        <div class="card role state">
+          <span class="tag">効いていない引数</span>
+          <h3><code>load</code>はdepsに入っていない</h3>
+          <p>
+            <code>() =&gt; repo.discover(query)</code>は<strong>毎renderで新しい関数</strong>になるが、
+            依存配列は<code>[...deps, nonce]</code>だけなので再取得の引き金にはならない。
+            引き金は<code>deps</code>と<code>nonce</code>のみ。
+          </p>
+          <p>
+            だから<code>query</code>を<code>useMemo</code>で固定する必要がある。
+            毎render新しいobjectだと<code>[query]</code>が毎回変わり、<strong>取得が止まらなくなる</strong>。
+          </p>
+        </div>
+
+        <div class="card role danger">
+          <span class="tag">失敗の形</span>
+          <h3>2種類しかない</h3>
+          <dl>
+            <dt>書き忘れ</dt>
+            <dd><code>load</code>が読む値を<code>deps</code>に入れ忘れる → 古い値で取り続ける（stale closure）</dd>
+            <dt>入れすぎ</dt>
+            <dd>毎render変わる値を入れる → 無限に取得し続ける</dd>
+          </dl>
+          <p style="margin-top:14px">
+            どちらもlintが黙っているので、<strong>レビューで<code>deps</code>と<code>load</code>を並べて読む</strong>のが唯一の防御。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="callers">
+      <div class="section-head">
+        <p class="section-no">06</p>
+        <div>
+          <p class="section-kicker">Call sites</p>
+          <h2>使われ方</h2>
+          <p class="section-intro">6か所。すべてclient componentの中。</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>画面</th><th>変数</th><th>deps</th><th>取り直す条件</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>DiscoverView</td><td class="mono">results</td><td class="mono">[query]</td><td>検索語・タグ・対象者・並び順が変わる / notify()</td></tr>
+              <tr><td>DiscoverView</td><td class="mono">fresh</td><td class="mono">[]</td><td>notify() のみ</td></tr>
+              <tr><td>DiscoverView</td><td class="mono">loved</td><td class="mono">[]</td><td>notify() のみ</td></tr>
+              <tr><td>LibraryView</td><td class="mono">counts</td><td class="mono">[]</td><td>notify() のみ</td></tr>
+              <tr><td>LibraryView</td><td class="mono">sets</td><td class="mono">[tab]</td><td>タブを切り替える / notify()</td></tr>
+              <tr><td>SetDetailView</td><td class="mono">data</td><td class="mono">[setId]</td><td>別のセットへ移る / notify()</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <span class="mark" aria-hidden="true">i</span>
+          <span>
+            <b>このhookを通していない読み出しもある。</b>
+            <code>viewerState</code>、<code>solveStatuses</code>、<code>allSolveStatuses</code>は
+            素の<code>useEffect</code> + <code>useState</code>で書かれている。
+            <strong>notify()で取り直されない</strong>ので、いいね状態は押した本人のstateで更新している。
+            揃えるなら、これらもhook経由へ寄せるのが自然な次の一歩。
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section id="limits">
+      <div class="section-head">
+        <p class="section-no">07</p>
+        <div>
+          <p class="section-kicker">Scope</p>
+          <h2>やらないこと</h2>
+          <p class="section-intro">
+            46行に収めるために落とした機能。どれも「必要になったら足す」で、
+            今のところ必要になっていない。
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card role danger">
+          <span class="tag">no cache</span>
+          <h3>共有も重複排除もない</h3>
+          <p>
+            hookのinstanceごとに独立してrequestを出す。同じqueryを2か所で使えば2本飛ぶ。
+            Discoverは初回に3本。
+          </p>
+        </div>
+        <div class="card role danger">
+          <span class="tag">no error</span>
+          <h3>失敗を外へ出さない</h3>
+          <p>
+            <code>catch</code>が握りつぶすので、呼び出し側は「失敗した」と「0件だった」を区別できない。
+            区別が要る画面が出たら<code>error</code>を戻り値へ足す。
+          </p>
+        </div>
+        <div class="card role danger">
+          <span class="tag">no retry</span>
+          <h3>再試行しない</h3>
+          <p>
+            一度失敗したら、depsが変わるかnotify()が来るまでそのまま。
+            画面の再読み込みが実質的な復帰手段。
+          </p>
+        </div>
+        <div class="card role danger">
+          <span class="tag">no suspense</span>
+          <h3>Suspenseに参加しない</h3>
+          <p>
+            <code>useEffect</code>で取るので、React SuspenseもNext.jsの<code>loading.tsx</code>もこの待ち時間を見られない。
+            スケルトンは<code>loading</code>を見て自前で出している。
+          </p>
+        </div>
+        <div class="card role danger">
+          <span class="tag">no abort</span>
+          <h3>通信を止めない</h3>
+          <p>
+            捨てるのは結果だけ。requestは最後まで走る（02節）。
+          </p>
+        </div>
+        <div class="card role state">
+          <span class="tag">置き換えるなら</span>
+          <h3>移行先</h3>
+          <p>
+            cacheとerrorが同時に要るようになったらTanStack QueryかSWR。
+            サーバ側で取れる画面が増えたら、Server Component + <code>use()</code>へ寄せて
+            このhookの担当範囲を狭める。
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      対象: <span class="mono">apps/web/src/app/_practice/use-practice-data.ts</span> ／
+      関連: <span class="mono">data/repository.ts</span>、<span class="mono">components/skeletons.tsx</span>
+    </p>
+    <p>Custom Contest · 精進側 · 2026-09-09時点のコードを読んで作成</p>
+  </footer>
+</div>
+
+<script>
+  // タブ。JSが無い環境では全パネルを縦に並べたまま出す（.no-jsでタブ自体を隠す）。
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.flow-tab'));
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (other) {
+        var panel = document.getElementById(other.getAttribute('aria-controls'));
+        var selected = other === tab;
+        other.setAttribute('aria-selected', String(selected));
+        panel.classList.toggle('is-active', selected);
+      });
+    });
+  });
+</script>
+</body>
+</html>

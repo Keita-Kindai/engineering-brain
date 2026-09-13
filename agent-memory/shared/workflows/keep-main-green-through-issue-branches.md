@@ -1,7 +1,7 @@
 ---
 title: Keep main green through issue branches and reviewed PRs
 created: 2026-09-04
-last-reviewed: 2026-09-04
+last-reviewed: 2026-09-08
 applies-to: shared
 ---
 
@@ -41,6 +41,32 @@ Requiring one approving review can deadlock a solo repository because the PR aut
 # Recovery
 
 - Edited but not committed on `main`: create a new branch without discarding the working tree.
-- Accidentally committed locally on `main`: stop and inspect publication state before choosing a safe move.
+- Accidentally committed locally on `main`: stop and inspect publication state before choosing a safe move. See "Divergent local main" below for the concrete recovery.
 - Accidentally pushed to shared `main`: do not force push or rewrite history automatically; use a reviewed revert or another user-approved recovery.
 - Branch reported as already used by another worktree: inspect `git worktree list`, verify that worktree is clean and committed, then remove the finished worktree with `git worktree remove <path>`.
+
+# Divergent local main
+
+`git pull` refusing with `fatal: Need to specify how to reconcile divergent branches` means local `main` holds at least one commit that is not on `origin/main`, while `origin/main` has moved. `git branch -vv` names it as `ahead N, behind M`. The message is about reconciliation strategy, not corruption, and the ahead commits are the real problem.
+
+The commit usually arrives without a deliberate decision to work on `main`:
+
+- Editor or tool auto-staging, then a quick catch-all commit message.
+- Files a dev server rewrites on its own. Next.js regenerates `apps/web/next-env.d.ts` when its type output path changes, so it reappears as a modification nobody made by hand.
+- Binary assets dropped into the repository directory (design exports, screenshots) and swept up by `git add -A`.
+
+Recover by moving the commits onto a branch, then making local `main` a pure mirror again:
+
+```sh
+git branch <type>/<slug>          # save the ahead commits; they now live on this branch
+git switch main
+git reset --hard origin/main      # safe only because the branch above holds the commits
+git switch <type>/<slug>
+git rebase main                   # replay them on the new origin/main
+```
+
+Verify with `git branch -vv`: `main` must report neither ahead nor behind, and the new branch must contain the commits. Then push the branch and open a PR as usual.
+
+Prevent the recurrence rather than re-learning the reconciliation flags. `git config pull.ff only` makes `git pull` fail immediately on any divergence instead of offering to merge or rebase, which surfaces a stray `main` commit at the moment it appears. Reserve `pull.rebase` for branches that are genuinely yours to rewrite.
+
+Never resolve this with a merge commit on `main` or by force pushing `main`. Both put unreviewed work into the integration line, which is exactly what the branch-and-PR rule exists to prevent.

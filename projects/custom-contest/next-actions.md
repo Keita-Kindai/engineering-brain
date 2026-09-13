@@ -1,13 +1,14 @@
 ---
 project: custom-contest
-updated: 2026-09-05
+updated: 2026-09-09
 ---
 
 # Next actions
 
-1. 精進側の画面を見て、2 skinの方向性とcardの密度でよいか判断する
-2. DESIGN-081（作成をstep式にするか1画面のままか）とDESIGN-074（認証方式）を決める
-3. 決まったら問題セットのPostgreSQL永続化をADRにし、`repository.ts` の実装を差し替える
+1. `fix/pin-ssl-mode` をmergeして再デプロイする（migration 0004 とカタログ4,764問のseedも同じデプロイで走る）
+2. 公開範囲を別アカウントから実地で確かめる（非公開が開けないこと、限定公開がURLで開けること）
+3. Googleを足すか決める。足すならprovider取り違えの案内をどうするか
 4. 練習画面（`/practice/[setId]`）を設計する
-5. 対戦側と精進側を1つのtopとglobal navigationへ統合する
-6. 対戦の抽選poolと精進の検索catalogを1つのカタログへ統合する
+5. Neonのusageを一度見て、CU-hoursの消費ペースを掴む
+6. 対戦を戻す時期と、そのときのホスティングを決める（Room stateを外部storeへ移すか、常駐processへ払うか）
+7. ICPC / Codeforcesの問題を入れるか。`problem_id` の名前空間が衝突する（DESIGN-099）
